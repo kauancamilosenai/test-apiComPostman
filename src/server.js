@@ -6,8 +6,28 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+function validarEmailIdade(email, idade){
+    //validando o email
+    if(typeof(email) !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        return false
+    }
+
+    //validando a idade
+    if(typeof(idade) !== 'number' || idade < 0 || idade > 100){
+        return false
+    }
+    return true
+}
 
 //simulação de uma lista de alunos
+let LETidsequencial = 4
+function idsequencial(){
+    LETidsequencial = LETidsequencial + 1
+    return LETidsequencial
+}
+
+
+
 const alunos = [
     {
         id: 1,
@@ -63,25 +83,28 @@ app.get("/alunos/curso/:curso", (req, res) => {
 
     const resultado = alunos.filter((aluno) => aluno.curso.toLowerCase().includes(curso))
 
+    if(resultado.length === 0){
+        return res.status(400).json({mensagem: `Nenhum aluco com o curso '${curso}' encontrado.`})
+    }
+
     return res.status(200).json(resultado)
 })
 
 //POST = cadastrar aluno
 app.post("/alunos", (req, res) => {
     const {nome, email, idade, curso} = req.body
-
-    //validando o email
-    if(typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-        return res.status(400).json({mensagem: "E-mail inválido"})
+    
+    if(!nome || !email || !idade || !curso){
+        return res.status(400).json({mensagem: "Para fazer o cadastro é necessario que as seguintes informações sejam preenchidas: NOME, EMAIL, IDADE, CURSO"})
     }
 
-    //validando a idade
-    if(typeof !Number(idade) || idade < 0 || idade > 100){
-        return res.status(400).json({mensagem:('idade precisa ser numérica, maior que 0 e menor que 100')})
+    const validacao = validarEmailIdade(email,idade)
+    if(validacao === false){
+        return res.status(400).json({mensagem:"email deve ter @ e idade deve ser 0-100 e numerica"})
     }
 
     const novoAluno = {
-        id: alunos.length + 1,
+        id: idsequencial(),
         nome: req.body.nome,
         email: req.body.email,
         idade: req.body.idade,
@@ -89,8 +112,70 @@ app.post("/alunos", (req, res) => {
     }
 
     alunos.push(novoAluno)
-    res.status(201).json(novoAluno)
+    return res.status(201).json(novoAluno)
+})
 
+// PUT atualiza todas as informações do aluno
+app.put("/alunos/:id", (req, res) => {
+    const id = req.params.id
+    const {nome, email, idade, curso} = req.body
+    
+    const checkid = alunos.filter(aluno => aluno.id == id)
+    if(checkid.length == 0){
+        return res.status(400).json({mensagem:`ID: ${id} não encontrado`})
+    }
+
+    if(!nome || !email || !idade || !curso){
+        return res.status(400).json({mensagem:"por favor preencha todas as informações: nome, email, idade, curso"})
+    }
+
+    // criei uma função pois já havia repetido isso antes
+    const validacao = validarEmailIdade(email,idade)
+    if(validacao === false){
+        return res.status(400).json({mensagem:"email deve ter @ e idade deve ser 0-100 e numerica"})
+    }
+
+    alunos[id-1] = {
+        nome: nome,
+        email: email,
+        idade: idade,
+        curso: curso
+    }
+    return res.json({mensagem:`ID: ${id} alterado com sucesso`, "aluno atualizado": alunos[id-1]})
+})
+
+app.patch("/alunos/:id", (req, res) => {
+    const id = req.params.id
+    const idade = Number(req.query.idade)
+    console.log(idade)
+    
+    const checkid = alunos.filter(aluno => aluno.id == id)
+    if(checkid.length == 0){
+        return res.status(400).json({mensagem:`ID: ${id} não encontrado`})
+    }
+    
+    if(isNaN(idade) || idade>100 || idade<0){
+        return res.status(400).json({mensagem:'idade precisa ser numérica, maior que 0 e menor que 100'})
+    }
+
+    alunos[id-1].idade = idade
+    return res.json({mensagem:`Idade do aluno: ${alunos[id-1].nome}, atualizada para: ${idade} anos`})
+})
+
+app.delete("/alunos/deletar/:id", (req, res) => {
+    const id = req.params.id
+
+    if(!id){
+        return res.status(400).json({mensagem:"por favor digite o ID para excluir"})
+    }
+
+    const checkid = alunos.find((alunoID) => alunoID.id == id)
+    if(!checkid){
+        return res.status(400).json(({mensagem:`ID: '${id}' não encontrado dentro da lista alunos`}))
+    }
+
+    alunos.splice((id-1), 1)
+    return res.status(200).json({mensagem:`ID: '${id}' deletado com sucesso`, lista:alunos})
 })
 
 app.listen(3000, () => {console.log("Api rodando em http://localhost:3000")})
